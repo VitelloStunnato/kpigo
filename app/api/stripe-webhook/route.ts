@@ -54,10 +54,6 @@ async function unlockReport(token: string): Promise<void> {
   );
 }
 
-// ─── Route config — disable body parsing for raw signature verification ───────
-
-export const config = { api: { bodyParser: false } };
-
 // ─── Webhook handler ──────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest): Promise<NextResponse> {

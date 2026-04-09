@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -57,9 +57,9 @@ function Spinner() {
   );
 }
 
-// ─── Success page ─────────────────────────────────────────────────────────────
+// ─── Inner component (uses useSearchParams — must be inside Suspense) ─────────
 
-export default function SuccessPage() {
+function SuccessInner() {
   const params = useSearchParams();
   const token = params.get("token");
   const [status, setStatus] = useState<Status>({ kind: "loading" });
@@ -258,5 +258,24 @@ export default function SuccessPage() {
         )}
       </main>
     </div>
+  );
+}
+
+// ─── Page export — wraps inner component in Suspense (required for useSearchParams) ──
+
+export default function SuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-gray-950">
+          <svg className="animate-spin h-6 w-6" style={{ color: "#01696f" }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+          </svg>
+        </div>
+      }
+    >
+      <SuccessInner />
+    </Suspense>
   );
 }
