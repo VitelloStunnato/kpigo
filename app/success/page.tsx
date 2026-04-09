@@ -14,9 +14,15 @@ interface NumericKPI {
   count: number;
 }
 
+interface CatFreq {
+  value: string;
+  count: number;
+  percent: number;
+}
+
 interface CategoricalKPI {
   column: string;
-  topValues: { value: string; count: number; percent: number }[];
+  topValues: CatFreq[];
   totalCount: number;
 }
 
@@ -39,35 +45,141 @@ type Status =
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmt(n: number): string {
-  return n >= 1_000_000
-    ? `${(n / 1_000_000).toFixed(2)}M`
-    : n >= 1_000
-    ? `${(n / 1_000).toFixed(2)}k`
-    : n % 1 === 0
-    ? String(n)
-    : n.toFixed(2);
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000)     return `${(n / 1_000).toFixed(2)}k`;
+  if (n % 1 === 0)    return String(n);
+  return n.toFixed(2);
 }
 
 function Spinner({ size = 20 }: { size?: number }) {
   return (
-    <svg
-      className="animate-spin"
-      style={{ width: size, height: size, color: "var(--teal)" }}
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+    <svg className="animate-spin shrink-0" style={{ width: size, height: size, color: "var(--teal-bright)" }}
+      fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3.5" />
+      <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
     </svg>
   );
 }
 
-// ─── Inner component (uses useSearchParams — must be inside Suspense) ─────────
+function LogoMark() {
+  return (
+    <a href="/" className="flex items-center gap-2.5 group">
+      <span
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] text-xs font-black text-white"
+        style={{
+          background: "linear-gradient(145deg, #01b0bc 0%, var(--teal) 100%)",
+          boxShadow: "0 0 14px -2px rgba(1,122,130,0.5), inset 0 1px 0 rgba(255,255,255,0.12)",
+          letterSpacing: "-0.03em",
+        }}
+      >K</span>
+      <span className="text-sm font-bold tracking-tight" style={{ color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
+        KPIGo
+      </span>
+    </a>
+  );
+}
+
+// ─── Full-screen states ───────────────────────────────────────────────────────
+
+function LoadingScreen({ attempt }: { attempt?: number }) {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-5"
+      style={{ background: "var(--surface-0)" }}>
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl"
+        style={{ background: "var(--teal-glow)", border: "1px solid var(--teal-border)", boxShadow: "0 0 24px -6px rgba(1,122,130,0.3)" }}>
+        <Spinner size={28} />
+      </div>
+      <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
+        {attempt
+          ? `Attesa conferma pagamento… (${attempt}/6)`
+          : "Caricamento report…"}
+      </p>
+      {attempt && (
+        <p className="text-xs" style={{ color: "var(--text-faint)" }}>
+          Il webhook Stripe può richiedere qualche secondo
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ErrorScreen({ message }: { message: string }) {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6"
+      style={{ background: "var(--surface-0)" }}>
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl text-xl"
+        style={{ background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.18)" }}>
+        ⚠️
+      </div>
+      <div className="max-w-xs text-center">
+        <p className="mb-1.5 text-sm font-bold" style={{ color: "#f87171" }}>Errore</p>
+        <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>{message}</p>
+      </div>
+      <a href="/"
+        className="btn-ghost rounded-full px-5 py-2 text-xs font-semibold">
+        ← Torna alla home
+      </a>
+    </div>
+  );
+}
+
+// ─── KPI cards ────────────────────────────────────────────────────────────────
+
+function NumKPICard({ kpi }: { kpi: NumericKPI }) {
+  return (
+    <div className="kpi-card p-5">
+      <p className="section-label mb-3">{kpi.column}</p>
+      <p className="stat-value">{fmt(kpi.sum)}</p>
+      <p className="stat-sub mb-4">totale · {kpi.count} valori</p>
+      <div className="grid grid-cols-3 gap-3 border-t pt-4" style={{ borderColor: "var(--border-dim)" }}>
+        {([["media", kpi.mean], ["min", kpi.min], ["max", kpi.max]] as const).map(([l, v]) => (
+          <div key={l} className="text-center">
+            <p className="text-sm font-semibold tabular-nums" style={{ color: "var(--text-secondary)" }}>
+              {fmt(Number(v))}
+            </p>
+            <p className="mt-0.5 text-xs" style={{ color: "var(--text-faint)" }}>{l}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CatKPICard({ kpi }: { kpi: CategoricalKPI }) {
+  const max = kpi.topValues[0]?.percent ?? 100;
+  return (
+    <div className="kpi-card p-5">
+      <div className="mb-4 flex items-start justify-between gap-2">
+        <p className="section-label">{kpi.column}</p>
+        <span className="text-xs tabular-nums" style={{ color: "var(--text-faint)" }}>
+          {kpi.totalCount} righe
+        </span>
+      </div>
+      <ul className="space-y-3">
+        {kpi.topValues.map((v) => (
+          <li key={v.value} className="flex items-center gap-3">
+            {/* bar scaled to max for visual punch */}
+            <div className="progress-track flex-1">
+              <div className="progress-fill" style={{ width: `${(v.percent / max) * 100}%` }} />
+            </div>
+            <span className="w-28 truncate text-right text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+              {v.value}
+            </span>
+            <span className="w-9 text-right text-xs font-bold tabular-nums" style={{ color: "#4dcfcf" }}>
+              {v.percent}%
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ─── Inner component (uses useSearchParams) ───────────────────────────────────
 
 function SuccessInner() {
   const params = useSearchParams();
-  const token = params.get("token");
+  const token  = params.get("token");
   const [status, setStatus] = useState<Status>({ kind: "loading" });
 
   useEffect(() => {
@@ -77,10 +189,10 @@ function SuccessInner() {
     }
 
     let attempt = 0;
-    const MAX_ATTEMPTS = 6;
-    const DELAY_MS = 2000;
+    const MAX = 6;
+    const DELAY = 2000;
 
-    async function fetchReport() {
+    async function poll() {
       try {
         const res = await fetch(`/api/report/${token}`);
         if (!res.ok) {
@@ -89,312 +201,149 @@ function SuccessInner() {
         }
         const report = (await res.json()) as ReportResponse;
 
-        if (report.locked && attempt < MAX_ATTEMPTS) {
+        if (report.locked && attempt < MAX) {
           attempt++;
           setStatus({ kind: "retrying", attempt });
-          setTimeout(fetchReport, DELAY_MS);
+          setTimeout(poll, DELAY);
           return;
         }
-
         setStatus({ kind: "done", report });
       } catch (err) {
-        setStatus({
-          kind: "error",
-          message: err instanceof Error ? err.message : "Errore sconosciuto.",
-        });
+        setStatus({ kind: "error", message: err instanceof Error ? err.message : "Errore sconosciuto." });
       }
     }
 
-    fetchReport();
+    poll();
   }, [token]);
 
-  // ── Loading / retrying ────────────────────────────────────────────────────
-  if (status.kind === "loading" || status.kind === "retrying") {
-    return (
-      <div
-        className="flex min-h-screen flex-col items-center justify-center gap-4"
-        style={{ background: "var(--surface-0)" }}
-      >
-        <Spinner size={28} />
-        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-          {status.kind === "retrying"
-            ? `Attesa conferma pagamento… (${status.attempt}/6)`
-            : "Caricamento report…"}
-        </p>
-      </div>
-    );
-  }
-
-  // ── Error ─────────────────────────────────────────────────────────────────
-  if (status.kind === "error") {
-    return (
-      <div
-        className="flex min-h-screen flex-col items-center justify-center gap-4"
-        style={{ background: "var(--surface-0)" }}
-      >
-        <div
-          className="rounded-xl p-6 text-center"
-          style={{
-            background: "var(--surface-1)",
-            border: "1px solid rgba(239,68,68,0.25)",
-            maxWidth: 360,
-          }}
-        >
-          <p className="mb-1 text-sm font-medium" style={{ color: "#f87171" }}>
-            Errore
-          </p>
-          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-            {status.message}
-          </p>
-        </div>
-        <a
-          href="/"
-          className="text-xs underline"
-          style={{ color: "var(--text-muted)" }}
-        >
-          Torna alla home
-        </a>
-      </div>
-    );
-  }
+  if (status.kind === "loading")  return <LoadingScreen />;
+  if (status.kind === "retrying") return <LoadingScreen attempt={status.attempt} />;
+  if (status.kind === "error")    return <ErrorScreen message={status.message} />;
 
   const { report } = status;
+  const date = new Date(report.generatedAt).toLocaleString("it-IT", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
 
-  // ── Report unlocked ───────────────────────────────────────────────────────
   return (
     <div className="min-h-screen" style={{ background: "var(--surface-0)", color: "var(--text-primary)" }}>
 
-      {/* Nav */}
-      <nav
-        className="sticky top-0 z-50 px-6 py-4"
-        style={{
-          background: "rgba(9,9,11,0.85)",
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
-          borderBottom: "1px solid var(--border-dim)",
-        }}
-      >
-        <div className="mx-auto flex max-w-4xl items-center justify-between">
-          <a href="/" className="flex items-center gap-2.5 group">
-            <span
-              className="flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold text-white"
-              style={{
-                background: "linear-gradient(135deg, #01818a 0%, var(--teal) 100%)",
-                boxShadow: "0 0 12px -2px rgba(1,105,111,0.5)",
-              }}
-            >
-              K
-            </span>
-            <span
-              className="text-sm font-semibold tracking-tight"
-              style={{ color: "var(--text-primary)" }}
-            >
-              KPIGo
-            </span>
-          </a>
-          <span
-            className="chip-teal rounded-full px-3 py-0.5 text-xs font-medium"
-          >
-            ✓ Pagato
+      {/* Noise overlay */}
+      <div className="noise-overlay" aria-hidden />
+
+      {/* ── NAV ─────────────────────────────────────────────────────────── */}
+      <nav className="nav-glass sticky top-0 z-30">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-5 py-3.5">
+          <LogoMark />
+          <span className="chip-success rounded-full px-3 py-1 text-xs font-semibold">
+            ✓ Report sbloccato
           </span>
         </div>
       </nav>
 
-      <main className="mx-auto max-w-4xl space-y-10 px-6 py-12">
+      <main className="mx-auto max-w-4xl px-5 py-12">
 
-        {/* Header */}
-        <div className="animate-fade-up flex items-start justify-between">
+        {/* ── HEADER ──────────────────────────────────────────────────── */}
+        <div className="animate-fade-up mb-10 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
+            <h1 className="text-2xl font-black tracking-tight" style={{ color: "var(--text-primary)", letterSpacing: "-0.04em" }}>
               Report completo
             </h1>
             <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-              Generato il {new Date(report.generatedAt).toLocaleString("it-IT")} ·{" "}
-              {report.rowCount} righe · token{" "}
+              Generato il {date} · {report.rowCount} righe · token{" "}
               <span className="font-mono">{report.token.slice(0, 8)}…</span>
             </p>
           </div>
-          <a
-            href="/"
-            className="rounded-full px-4 py-1.5 text-xs transition-colors"
-            style={{
-              border: "1px solid var(--border-mid)",
-              color: "var(--text-secondary)",
-            }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.background = "var(--surface-2)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.background = "transparent")
-            }
-          >
-            Nuovo file
+          <a href="/" className="btn-ghost rounded-full px-4 py-1.5 text-xs font-semibold">
+            ← Nuovo file
           </a>
         </div>
 
-        {/* Numeric KPIs */}
+        <hr className="divider mb-10" />
+
+        {/* ── NUMERIC KPIs ────────────────────────────────────────────── */}
         {report.kpis.numeric.length > 0 && (
-          <section className="animate-fade-up-2">
-            <p className="section-label mb-4">KPI Numerici</p>
+          <section className="animate-fade-up-2 mb-10">
+            <div className="mb-5 flex items-center gap-3">
+              <p className="section-label">KPI Numerici</p>
+              <span className="text-xs tabular-nums" style={{ color: "var(--text-faint)" }}>
+                {report.kpis.numeric.length} colonne
+              </span>
+            </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {report.kpis.numeric.map((k) => (
-                <div key={k.column} className="kpi-card p-5">
-                  <p
-                    className="section-label mb-1"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    {k.column}
-                  </p>
-                  <p
-                    className="text-3xl font-bold tracking-tight"
-                    style={{ color: "var(--text-primary)" }}
-                  >
-                    {fmt(k.sum)}
-                  </p>
-                  <p
-                    className="mb-4 text-xs"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    totale
-                  </p>
-                  <div
-                    className="grid grid-cols-3 gap-2 pt-4"
-                    style={{ borderTop: "1px solid var(--border-dim)" }}
-                  >
-                    {[
-                      { label: "media", val: k.mean },
-                      { label: "min", val: k.min },
-                      { label: "max", val: k.max },
-                    ].map(({ label, val }) => (
-                      <div key={label} className="text-center">
-                        <p
-                          className="text-sm font-semibold"
-                          style={{ color: "var(--text-primary)" }}
-                        >
-                          {fmt(val)}
-                        </p>
-                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                          {label}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+              {report.kpis.numeric.map(k => <NumKPICard key={k.column} kpi={k} />)}
             </div>
           </section>
         )}
 
-        {/* Categorical KPIs */}
+        {/* ── CATEGORICAL KPIs ────────────────────────────────────────── */}
         {report.kpis.categorical.length > 0 && (
-          <section className="animate-fade-up-3">
-            <p className="section-label mb-4">Distribuzione Categorica</p>
+          <section className="animate-fade-up-3 mb-10">
+            <div className="mb-5 flex items-center gap-3">
+              <p className="section-label">Distribuzione categorica</p>
+              <span className="text-xs tabular-nums" style={{ color: "var(--text-faint)" }}>
+                {report.kpis.categorical.length} colonne
+              </span>
+            </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {report.kpis.categorical.map((k) => (
-                <div key={k.column} className="kpi-card p-5">
-                  <p
-                    className="section-label mb-4"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    {k.column}
-                  </p>
-                  <ul className="space-y-3">
-                    {k.topValues.map((v) => (
-                      <li key={v.value} className="flex items-center gap-3">
-                        <div
-                          className="h-1.5 flex-1 rounded-full"
-                          style={{ background: "var(--surface-3)" }}
-                        >
-                          <div
-                            className="h-1.5 rounded-full transition-all"
-                            style={{
-                              width: `${v.percent}%`,
-                              background: "linear-gradient(90deg, var(--teal) 0%, #01c4c4 100%)",
-                            }}
-                          />
-                        </div>
-                        <span
-                          className="w-24 truncate text-right text-xs"
-                          style={{ color: "var(--text-secondary)" }}
-                        >
-                          {v.value}
-                        </span>
-                        <span
-                          className="w-8 text-right text-xs font-semibold tabular-nums"
-                          style={{ color: "#5ecfcf" }}
-                        >
-                          {v.percent}%
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
+              {report.kpis.categorical.map(k => <CatKPICard key={k.column} kpi={k} />)}
             </div>
           </section>
         )}
 
-        {/* SVG Charts */}
+        {/* ── CHARTS ──────────────────────────────────────────────────── */}
         {(report.barSVG || report.pieSVG) && (
-          <section>
-            <p className="section-label mb-4">Grafici</p>
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <section className="animate-fade-up-4 mb-10">
+            <p className="section-label mb-5">Grafici SVG</p>
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
               {report.barSVG && (
-                <div
-                  className="kpi-card overflow-hidden p-5"
-                  dangerouslySetInnerHTML={{ __html: report.barSVG }}
-                />
+                <div className="overflow-hidden rounded-[14px] bg-white p-5 shadow-lg"
+                  style={{ border: "1px solid #e8e8e8" }}
+                  dangerouslySetInnerHTML={{ __html: report.barSVG }} />
               )}
               {report.pieSVG && (
-                <div
-                  className="kpi-card overflow-hidden p-5"
-                  dangerouslySetInnerHTML={{ __html: report.pieSVG }}
-                />
+                <div className="overflow-hidden rounded-[14px] bg-white p-5 shadow-lg"
+                  style={{ border: "1px solid #e8e8e8" }}
+                  dangerouslySetInnerHTML={{ __html: report.pieSVG }} />
               )}
             </div>
           </section>
         )}
 
-        {/* Footer */}
-        <div
-          className="divider pt-8 text-center"
-        >
-          <p className="text-xs" style={{ color: "var(--text-faint)" }}>
-            Genera un nuovo report su{" "}
-            <a
-              href="/"
-              className="underline"
-              style={{ color: "var(--text-muted)" }}
-            >
-              kpigo.vercel.app
-            </a>
+        {/* ── FOOTER CTA ──────────────────────────────────────────────── */}
+        <div className="mt-16 rounded-[14px] p-8 text-center"
+          style={{ background: "var(--surface-1)", border: "1px solid var(--border-dim)" }}>
+          <p className="mb-1.5 text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+            Hai un altro file da analizzare?
           </p>
+          <p className="mb-5 text-xs" style={{ color: "var(--text-muted)" }}>
+            Ogni report è indipendente · 4,90 € · nessun abbonamento
+          </p>
+          <a href="/"
+            className="btn-teal inline-flex items-center gap-2 rounded-full px-7 py-2.5 text-sm font-bold text-white">
+            Nuovo report
+          </a>
         </div>
 
       </main>
+
     </div>
   );
 }
 
-// ─── Page export — wraps inner component in Suspense (required for useSearchParams) ──
+// ─── Page export ─────────────────────────────────────────────────────────────
 
 export default function SuccessPage() {
   return (
     <Suspense
       fallback={
-        <div
-          className="flex min-h-screen items-center justify-center"
-          style={{ background: "var(--surface-0)" }}
-        >
-          <svg
-            className="animate-spin h-6 w-6"
-            style={{ color: "var(--teal)" }}
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+        <div className="flex min-h-screen items-center justify-center"
+          style={{ background: "var(--surface-0)" }}>
+          <svg className="animate-spin h-6 w-6" style={{ color: "var(--teal-bright)" }}
+            fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3.5" />
+            <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
           </svg>
         </div>
       }
