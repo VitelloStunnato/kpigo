@@ -37,14 +37,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   // 2. Build absolute URLs for Stripe redirects
-  const origin =
+  // Priority: explicit env var → request origin → VERCEL_URL → localhost
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ??
     request.headers.get("origin") ??
-    (process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000");
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ??
+    "http://localhost:3000";
 
-  const successUrl = `${origin}/success?token=${token}&session_id={CHECKOUT_SESSION_ID}`;
-  const cancelUrl  = `${origin}/?token=${token}&cancelled=1`;
+  const successUrl = `${appUrl}/success?token=${token}&session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl  = `${appUrl}/?token=${token}&cancelled=1`;
 
   // 3. Create Stripe Checkout session
   let session: Stripe.Checkout.Session;
