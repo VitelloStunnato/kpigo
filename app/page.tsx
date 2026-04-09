@@ -159,7 +159,15 @@ function CatCard({ kpi }: { kpi: CategoricalKPI }) {
   );
 }
 
-function LockedOverlay() {
+function LockedOverlay({
+  token,
+  onPay,
+  paying,
+}: {
+  token: string;
+  onPay: (token: string) => void;
+  paying: boolean;
+}) {
   return (
     <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-gray-700 bg-gray-900/60 p-10 text-center backdrop-blur-sm">
       <div
@@ -185,11 +193,14 @@ function LockedOverlay() {
         </p>
       </div>
       <button
-        className="rounded-full px-5 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-80"
+        onClick={() => onPay(token)}
+        disabled={paying}
+        className="flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-80 disabled:opacity-50"
         style={{ background: "#01696f" }}
       >
-        Sblocca per 4,90 €
+        {paying ? <><Spinner /> Reindirizzamento…</> : "Sblocca per 4,90 €"}
       </button>
+      <p className="text-xs text-gray-600">Pagamento sicuro via Stripe</p>
     </div>
   );
 }
@@ -198,7 +209,29 @@ function LockedOverlay() {
 
 export default function Home() {
   const [stage, setStage] = useState<Stage>({ kind: "idle" });
+  const [paying, setPaying] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  async function handlePay(token: string) {
+    setPaying(true);
+    try {
+      const res = await fetch("/api/stripe-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+      const data = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !data.url) {
+        setStage({ kind: "error", message: data.error ?? "Errore Stripe." });
+        return;
+      }
+      window.location.href = data.url; // redirect to Stripe Checkout
+    } catch {
+      setStage({ kind: "error", message: "Errore di rete. Riprova." });
+    } finally {
+      setPaying(false);
+    }
+  }
 
   // Step 1 + 2: upload → generate
   async function handleUpload(e: React.FormEvent<HTMLFormElement>) {
@@ -428,7 +461,11 @@ export default function Home() {
                 Grafici
               </h3>
               {stage.report.locked || !stage.report.barSVG ? (
-                <LockedOverlay />
+                <LockedOverlay
+                  token={stage.report.token}
+                  onPay={handlePay}
+                  paying={paying}
+                />
               ) : (
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                   <div
