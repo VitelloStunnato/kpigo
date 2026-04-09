@@ -48,9 +48,15 @@ function fmt(n: number): string {
     : n.toFixed(2);
 }
 
-function Spinner() {
+function Spinner({ size = 20 }: { size?: number }) {
   return (
-    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+    <svg
+      className="animate-spin"
+      style={{ width: size, height: size, color: "var(--teal)" }}
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
     </svg>
@@ -70,7 +76,6 @@ function SuccessInner() {
       return;
     }
 
-    // Stripe webhook may arrive slightly after the redirect — retry up to 6×
     let attempt = 0;
     const MAX_ATTEMPTS = 6;
     const DELAY_MS = 2000;
@@ -106,11 +111,14 @@ function SuccessInner() {
   // ── Loading / retrying ────────────────────────────────────────────────────
   if (status.kind === "loading" || status.kind === "retrying") {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-gray-950 text-white">
-        <span style={{ color: "#01696f" }}><Spinner /></span>
-        <p className="text-sm text-gray-400">
+      <div
+        className="flex min-h-screen flex-col items-center justify-center gap-4"
+        style={{ background: "var(--surface-0)" }}
+      >
+        <Spinner size={28} />
+        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
           {status.kind === "retrying"
-            ? `Attesa conferma pagamento… (${status.attempt}/${6})`
+            ? `Attesa conferma pagamento… (${status.attempt}/6)`
             : "Caricamento report…"}
         </p>
       </div>
@@ -120,9 +128,32 @@ function SuccessInner() {
   // ── Error ─────────────────────────────────────────────────────────────────
   if (status.kind === "error") {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-gray-950 text-white">
-        <p className="text-sm text-red-400">{status.message}</p>
-        <a href="/" className="text-xs text-gray-500 underline">Torna alla home</a>
+      <div
+        className="flex min-h-screen flex-col items-center justify-center gap-4"
+        style={{ background: "var(--surface-0)" }}
+      >
+        <div
+          className="rounded-xl p-6 text-center"
+          style={{
+            background: "var(--surface-1)",
+            border: "1px solid rgba(239,68,68,0.25)",
+            maxWidth: 360,
+          }}
+        >
+          <p className="mb-1 text-sm font-medium" style={{ color: "#f87171" }}>
+            Errore
+          </p>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+            {status.message}
+          </p>
+        </div>
+        <a
+          href="/"
+          className="text-xs underline"
+          style={{ color: "var(--text-muted)" }}
+        >
+          Torna alla home
+        </a>
       </div>
     );
   }
@@ -131,34 +162,53 @@ function SuccessInner() {
 
   // ── Report unlocked ───────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="min-h-screen" style={{ background: "var(--surface-0)", color: "var(--text-primary)" }}>
+
       {/* Nav */}
-      <nav className="border-b border-gray-900 px-6 py-4">
+      <nav
+        className="sticky top-0 z-50 px-6 py-4"
+        style={{
+          background: "rgba(9,9,11,0.85)",
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+          borderBottom: "1px solid var(--border-dim)",
+        }}
+      >
         <div className="mx-auto flex max-w-4xl items-center justify-between">
-          <a href="/" className="flex items-center gap-2">
+          <a href="/" className="flex items-center gap-2.5 group">
             <span
               className="flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold text-white"
-              style={{ background: "#01696f" }}
+              style={{
+                background: "linear-gradient(135deg, #01818a 0%, var(--teal) 100%)",
+                boxShadow: "0 0 12px -2px rgba(1,105,111,0.5)",
+              }}
             >
               K
             </span>
-            <span className="text-sm font-semibold tracking-tight">KPIGo</span>
+            <span
+              className="text-sm font-semibold tracking-tight"
+              style={{ color: "var(--text-primary)" }}
+            >
+              KPIGo
+            </span>
           </a>
           <span
-            className="rounded-full px-3 py-0.5 text-xs font-medium text-white"
-            style={{ background: "#01696f33", color: "#01696f" }}
+            className="chip-teal rounded-full px-3 py-0.5 text-xs font-medium"
           >
             ✓ Pagato
           </span>
         </div>
       </nav>
 
-      <main className="mx-auto max-w-4xl space-y-8 px-6 py-12">
+      <main className="mx-auto max-w-4xl space-y-10 px-6 py-12">
+
         {/* Header */}
-        <div className="flex items-start justify-between">
+        <div className="animate-fade-up flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">Report completo</h1>
-            <p className="mt-1 text-xs text-gray-500">
+            <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
+              Report completo
+            </h1>
+            <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
               Generato il {new Date(report.generatedAt).toLocaleString("it-IT")} ·{" "}
               {report.rowCount} righe · token{" "}
               <span className="font-mono">{report.token.slice(0, 8)}…</span>
@@ -166,7 +216,17 @@ function SuccessInner() {
           </div>
           <a
             href="/"
-            className="rounded-full border border-gray-700 px-4 py-1.5 text-xs text-gray-400 hover:bg-gray-800"
+            className="rounded-full px-4 py-1.5 text-xs transition-colors"
+            style={{
+              border: "1px solid var(--border-mid)",
+              color: "var(--text-secondary)",
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.background = "var(--surface-2)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = "transparent")
+            }
           >
             Nuovo file
           </a>
@@ -174,27 +234,50 @@ function SuccessInner() {
 
         {/* Numeric KPIs */}
         {report.kpis.numeric.length > 0 && (
-          <section>
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-              KPI Numerici
-            </h2>
+          <section className="animate-fade-up-2">
+            <p className="section-label mb-4">KPI Numerici</p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {report.kpis.numeric.map((k) => (
-                <div key={k.column} className="rounded-xl border border-gray-800 bg-gray-900 p-4">
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                <div key={k.column} className="kpi-card p-5">
+                  <p
+                    className="section-label mb-1"
+                    style={{ color: "var(--text-muted)" }}
+                  >
                     {k.column}
                   </p>
-                  <p className="text-3xl font-bold text-white">{fmt(k.sum)}</p>
-                  <p className="mb-3 text-xs text-gray-500">totale</p>
-                  <div className="grid grid-cols-3 gap-2 border-t border-gray-800 pt-3">
-                    {[{ label: "media", val: k.mean }, { label: "min", val: k.min }, { label: "max", val: k.max }].map(
-                      ({ label, val }) => (
-                        <div key={label} className="text-center">
-                          <p className="text-sm font-semibold text-gray-200">{fmt(val)}</p>
-                          <p className="text-xs text-gray-600">{label}</p>
-                        </div>
-                      )
-                    )}
+                  <p
+                    className="text-3xl font-bold tracking-tight"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    {fmt(k.sum)}
+                  </p>
+                  <p
+                    className="mb-4 text-xs"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    totale
+                  </p>
+                  <div
+                    className="grid grid-cols-3 gap-2 pt-4"
+                    style={{ borderTop: "1px solid var(--border-dim)" }}
+                  >
+                    {[
+                      { label: "media", val: k.mean },
+                      { label: "min", val: k.min },
+                      { label: "max", val: k.max },
+                    ].map(({ label, val }) => (
+                      <div key={label} className="text-center">
+                        <p
+                          className="text-sm font-semibold"
+                          style={{ color: "var(--text-primary)" }}
+                        >
+                          {fmt(val)}
+                        </p>
+                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                          {label}
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
@@ -204,27 +287,44 @@ function SuccessInner() {
 
         {/* Categorical KPIs */}
         {report.kpis.categorical.length > 0 && (
-          <section>
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-              Distribuzione Categorica
-            </h2>
+          <section className="animate-fade-up-3">
+            <p className="section-label mb-4">Distribuzione Categorica</p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {report.kpis.categorical.map((k) => (
-                <div key={k.column} className="rounded-xl border border-gray-800 bg-gray-900 p-4">
-                  <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                <div key={k.column} className="kpi-card p-5">
+                  <p
+                    className="section-label mb-4"
+                    style={{ color: "var(--text-muted)" }}
+                  >
                     {k.column}
                   </p>
-                  <ul className="space-y-2">
+                  <ul className="space-y-3">
                     {k.topValues.map((v) => (
-                      <li key={v.value} className="flex items-center gap-2">
-                        <div className="h-1.5 flex-1 rounded-full bg-gray-800">
+                      <li key={v.value} className="flex items-center gap-3">
+                        <div
+                          className="h-1.5 flex-1 rounded-full"
+                          style={{ background: "var(--surface-3)" }}
+                        >
                           <div
-                            className="h-1.5 rounded-full"
-                            style={{ width: `${v.percent}%`, background: "#01696f" }}
+                            className="h-1.5 rounded-full transition-all"
+                            style={{
+                              width: `${v.percent}%`,
+                              background: "linear-gradient(90deg, var(--teal) 0%, #01c4c4 100%)",
+                            }}
                           />
                         </div>
-                        <span className="w-24 truncate text-right text-xs text-gray-300">{v.value}</span>
-                        <span className="w-8 text-right text-xs font-medium text-gray-400">{v.percent}%</span>
+                        <span
+                          className="w-24 truncate text-right text-xs"
+                          style={{ color: "var(--text-secondary)" }}
+                        >
+                          {v.value}
+                        </span>
+                        <span
+                          className="w-8 text-right text-xs font-semibold tabular-nums"
+                          style={{ color: "#5ecfcf" }}
+                        >
+                          {v.percent}%
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -237,25 +337,40 @@ function SuccessInner() {
         {/* SVG Charts */}
         {(report.barSVG || report.pieSVG) && (
           <section>
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-              Grafici
-            </h2>
+            <p className="section-label mb-4">Grafici</p>
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               {report.barSVG && (
                 <div
-                  className="overflow-hidden rounded-xl border border-gray-800 bg-white p-4"
+                  className="kpi-card overflow-hidden p-5"
                   dangerouslySetInnerHTML={{ __html: report.barSVG }}
                 />
               )}
               {report.pieSVG && (
                 <div
-                  className="overflow-hidden rounded-xl border border-gray-800 bg-white p-4"
+                  className="kpi-card overflow-hidden p-5"
                   dangerouslySetInnerHTML={{ __html: report.pieSVG }}
                 />
               )}
             </div>
           </section>
         )}
+
+        {/* Footer */}
+        <div
+          className="divider pt-8 text-center"
+        >
+          <p className="text-xs" style={{ color: "var(--text-faint)" }}>
+            Genera un nuovo report su{" "}
+            <a
+              href="/"
+              className="underline"
+              style={{ color: "var(--text-muted)" }}
+            >
+              kpigo.vercel.app
+            </a>
+          </p>
+        </div>
+
       </main>
     </div>
   );
@@ -267,8 +382,17 @@ export default function SuccessPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-gray-950">
-          <svg className="animate-spin h-6 w-6" style={{ color: "#01696f" }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <div
+          className="flex min-h-screen items-center justify-center"
+          style={{ background: "var(--surface-0)" }}
+        >
+          <svg
+            className="animate-spin h-6 w-6"
+            style={{ color: "var(--teal)" }}
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
           </svg>
