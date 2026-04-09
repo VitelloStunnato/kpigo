@@ -152,10 +152,6 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ): Promise<NextResponse> {
-  if (process.env.NODE_ENV === "production") {
-    return NextResponse.json({ error: "Non disponibile." }, { status: 404 });
-  }
-
   const { token } = await params;
 
   if (!token || !/^[\w-]{8,64}$/.test(token)) {
