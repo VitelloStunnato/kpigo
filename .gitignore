@@ -48,3 +48,7 @@ test-files/
 
 # scratch scripts
 gen_example.mjs
+
+# test data at root
+vendite.xlsx
+.env*.local
